@@ -1866,6 +1866,7 @@ func UpdateLoadBalancerPoolMember(vpcService *vpcv1.VpcV1, lbID, poolID, memberI
 	}
 	options.SetLoadBalancerID(lbID)
 	options.SetPoolID(poolID)
+	options.SetID(memberID)
 	member, response, err = vpcService.UpdateLoadBalancerPoolMember(options)
 	return
 }

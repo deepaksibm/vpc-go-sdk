@@ -58,6 +58,7 @@ var (
 	createdVPCRouteID         *string
 	createdEgwID              *string
 	createdRtID               *string
+	createdRt2ID              *string
 	createdRouteID            *string
 	defaultACLID              *string
 	defaultImageID            *string
@@ -891,6 +892,7 @@ func TestVPCPublicGateways(t *testing.T) {
 			res, err := DeletePublicGateway(vpcService, *createdPGWID)
 			ValidateDeleteResponse(t, res, err, DELETE, res.StatusCode, detailed, increment)
 		})
+
 	})
 	printTestSummary()
 }
@@ -1486,7 +1488,7 @@ func TestVPCEndpointGateways(t *testing.T) {
 	t.Run("Endpoint Gateways", func(t *testing.T) {
 
 		t.Run("Create Endpoint Gateway", func(t *testing.T) {
-			res, _, err := CreateEndpointGateway(vpcService, *defaultVpcID)
+			res, _, err := CreateEndpointGateway(vpcService, *createdVpcID)
 			ValidateResponse(t, res, err, POST, detailed, increment)
 			createdEgwID = res.ID
 		})
@@ -1512,18 +1514,25 @@ func TestVPCEndpointGateways(t *testing.T) {
 			ValidateListResponse(t, res, err, GET, detailed, increment)
 		})
 
+		t.Run("Create Subnet ReservedIps", func(t *testing.T) {
+			name := getName("reservedIP")
+			res, _, err := CreateSubnetReservedIP(vpcService, *createdSubnetID, name)
+			createdSubnetReservedIP = res.ID
+			ValidateResponse(t, res, err, POST, detailed, increment)
+		})
+
 		t.Run("Put Endpoint Gateway IP", func(t *testing.T) {
-			res, _, err := AddEndpointGatewayIP(vpcService, *createdEgwID, *createdFipID)
+			res, _, err := AddEndpointGatewayIP(vpcService, *createdEgwID, *createdSubnetReservedIP)
 			ValidateResponse(t, res, err, GET, detailed, increment)
 		})
 
 		t.Run("Get Endpoint Gateway IP", func(t *testing.T) {
-			res, _, err := GetEndpointGatewayIP(vpcService, *createdEgwID, *createdFipID)
+			res, _, err := GetEndpointGatewayIP(vpcService, *createdEgwID, *createdSubnetReservedIP)
 			ValidateResponse(t, res, err, GET, detailed, increment)
 		})
 
 		t.Run("Remove Endpoint Gateway IP", func(t *testing.T) {
-			res, err := RemoveEndpointGatewayIP(vpcService, *createdEgwID, *createdFipID)
+			res, err := RemoveEndpointGatewayIP(vpcService, *createdEgwID, *createdSubnetReservedIP)
 			ValidateResponse(t, res, err, GET, detailed, increment)
 		})
 
@@ -1544,6 +1553,14 @@ func TestVPCRoutingTables(t *testing.T) {
 		}
 		defaultVpcID = res.Instances[0].VPC.ID
 		defaultSubnetID = res.Instances[0].PrimaryNetworkInterface.Subnet.ID
+	} else {
+		res, _, err := ListSubnets(vpcService)
+		if err != nil {
+			fmt.Println("Error: ", err)
+			t.Error(err)
+		}
+		defaultVpcID = res.Subnets[0].VPC.ID
+		defaultSubnetID = res.Subnets[0].ID
 	}
 	t.Run("Routing Tables", func(t *testing.T) {
 		t.Run("Get Subnet Routing Table", func(t *testing.T) {
@@ -1563,8 +1580,15 @@ func TestVPCRoutingTables(t *testing.T) {
 			createdRtID = res.ID
 		})
 
-		t.Run("Replace Endpoint Gateway IP", func(t *testing.T) {
-			res, _, err := ReplaceSubnetRoutingTable(vpcService, *defaultVpcID, *createdRtID)
+		t.Run("Create Routing Table 2", func(t *testing.T) {
+			name := "gsdk-rt2-" + timestamp
+			res, _, err := CreateVPCRoutingTable(vpcService, *defaultVpcID, name, *defaultZoneName)
+			ValidateResponse(t, res, err, POST, detailed, increment)
+			createdRt2ID = res.ID
+		})
+
+		t.Run("Replace Subnet Routing Table", func(t *testing.T) {
+			res, _, err := ReplaceSubnetRoutingTable(vpcService, *defaultSubnetID, *createdRtID)
 			ValidateResponse(t, res, err, GET, detailed, increment)
 		})
 		t.Run("List Routing Tables", func(t *testing.T) {
@@ -1611,7 +1635,7 @@ func TestVPCRoutingTables(t *testing.T) {
 		})
 
 		t.Run("Delete Routing Table", func(t *testing.T) {
-			res, err := DeleteVPCRoutingTable(vpcService, *defaultVpcID, *createdRtID)
+			res, err := DeleteVPCRoutingTable(vpcService, *defaultVpcID, *createdRt2ID)
 			ValidateDeleteResponse(t, res, err, DELETE, res.StatusCode, detailed, increment)
 		})
 
@@ -1676,7 +1700,7 @@ func TestVPCDedicatedHosts(t *testing.T) {
 
 		t.Run("Update DH", func(t *testing.T) {
 			name := "gsdk-dh2-" + timestamp
-			res, _, err := UpdateDedicatedHost(vpcService, createdDhID, &name)
+			res, _, err := UpdateDedicatedHost(vpcService, &name, createdDhID)
 			ValidateResponse(t, res, err, PATCH, detailed, increment)
 		})
 
